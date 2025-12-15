@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const MatrixGenPro = () => {
   // --- ÉTATS (STATE) ---
-  const [numRows, setNumRows] = useState(16);
-  const [numCols, setNumCols] = useState(16);
+  const [numRows, setNumRows] = useState(8);
+  const [numCols, setNumCols] = useState(32);
   
   // Fonction utilitaire pour créer une grille vide selon la taille actuelle
   const createEmptyGrid = (r, c) => Array.from({ length: r }, () => Array(c).fill(0));
 
-  const [frames, setFrames] = useState([createEmptyGrid(16, 16)]); // Init en 16x16
+  const [frames, setFrames] = useState([createEmptyGrid(8, 32)]); // Init en 8x32
   const [currentFrameIdx, setCurrentFrameIdx] = useState(0); 
   const [isPlaying, setIsPlaying] = useState(false);         
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -95,51 +95,71 @@ const MatrixGenPro = () => {
   // ==========================================================
   // LOGIQUE DE GÉNÉRATION BINAIRE (ADAPTATIVE)
   // ==========================================================
-  const generateBinary = () => {
-    // LOGIQUE 1 : Si on est en 16x16, on utilise ta logique "Tuiles" spécifique
-    if (numRows === 16 && numCols === 16) {
-      const bufferSize = frames.length * 32;
-      const buffer = new Uint8Array(bufferSize);
+const generateBinary = () => {
+    
+    // --- MODE 1 : RUBAN HORIZONTAL (8x32) ---
+    // C'est votre configuration actuelle (4 matrices alignées)
+    if (numRows === 8 && numCols === 32) {
+       const buffer = new Uint8Array(frames.length * 32);
+       let index = 0;
+       
+       frames.forEach((frame) => {
+         // Matrice 1 (Colonnes 0 à 7) -> Adresses 0-7
+         for (let r = 0; r < 8; r++) {
+           let byte = 0;
+           for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0);
+           buffer[index++] = byte;
+         }
+         // Matrice 2 (Colonnes 8 à 15) -> Adresses 8-15
+         for (let r = 0; r < 8; r++) {
+           let byte = 0;
+           for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0);
+           buffer[index++] = byte;
+         }
+         // Matrice 3 (Colonnes 16 à 23) -> Adresses 16-23
+         for (let r = 0; r < 8; r++) {
+           let byte = 0;
+           for (let c = 0; c < 8; c++) byte |= (frame[r][c+16] ? (1 << c) : 0);
+           buffer[index++] = byte;
+         }
+         // Matrice 4 (Colonnes 24 à 31) -> Adresses 24-31
+         for (let r = 0; r < 8; r++) {
+           let byte = 0;
+           for (let c = 0; c < 8; c++) byte |= (frame[r][c+24] ? (1 << c) : 0);
+           buffer[index++] = byte;
+         }
+       });
+       return buffer;
+    }
+    
+    // --- MODE 2 : CARRÉ TILED (16x16) ---
+    // Pour votre ancien montage carré
+    else if (numRows === 16 && numCols === 16) {
+      const buffer = new Uint8Array(frames.length * 32);
       let index = 0;
-
       frames.forEach((frame) => {
-        // BLOC 1 : Haut-Gauche
-        for (let r = 0; r < 8; r++) {
-          let byte = 0;
-          for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0);
-          buffer[index++] = byte;
-        }
-        // BLOC 2 : Haut-Droite
-        for (let r = 0; r < 8; r++) {
-          let byte = 0;
-          for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0);
-          buffer[index++] = byte;
-        }
-        // BLOC 3 : Bas-Gauche
-        for (let r = 8; r < 16; r++) {
-          let byte = 0;
-          for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0);
-          buffer[index++] = byte;
-        }
-        // BLOC 4 : Bas-Droite
-        for (let r = 8; r < 16; r++) {
-          let byte = 0;
-          for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0);
-          buffer[index++] = byte;
-        }
+        // Bloc Haut-Gauche
+        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); buffer[index++] = byte; }
+        // Bloc Haut-Droite
+        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); buffer[index++] = byte; }
+        // Bloc Bas-Gauche
+        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); buffer[index++] = byte; }
+        // Bloc Bas-Droite
+        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); buffer[index++] = byte; }
       });
       return buffer;
-    } 
-    
-    // LOGIQUE 2 : Si on est en 8x8 (Standard)
+    }
+
+    // --- MODE 3 : STANDARD (8x8) ---
+    // Pour une seule matrice simple
     else if (numRows === 8 && numCols === 8) {
       const buffer = new Uint8Array(frames.length * 8);
       let index = 0;
       frames.forEach((frame) => {
-        for (let c = 0; c < 8; c++) { // Scan par Colonne (classique Proteus)
+        for (let c = 0; c < 8; c++) { 
           let byte = 0;
           for (let r = 0; r < 8; r++) {
-             // Inversion standard pour Anode/Cathode classique
+             // Inversion standard pour Anode/Cathode classique Proteus
              if(frame[r][c]) byte |= (1 << (7-r)); 
           }
           buffer[index++] = byte;
@@ -148,10 +168,10 @@ const MatrixGenPro = () => {
       return buffer;
     }
 
-    // LOGIQUE 3 : Taille personnalisée (Générique Ligne par Ligne)
+    // --- MODE 4 : GÉNÉRIQUE (Fallback) ---
+    // Si vous mettez une taille bizarre (ex: 10x20)
     else {
-      alert("Attention : Taille non standard. Le binaire généré sera séquentiel (Ligne par Ligne).");
-      const buffer = new Uint8Array(frames.length * numRows); // 1 octet par ligne (si < 8 cols) ou simplifié
+      const buffer = new Uint8Array(frames.length * numRows);
       let index = 0;
       frames.forEach(frame => {
          for(let r=0; r<numRows; r++) {
