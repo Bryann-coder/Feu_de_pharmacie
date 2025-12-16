@@ -80,48 +80,49 @@ const MatrixGenPro = () => {
   }, [isPlaying, frames.length, fps]);
 
   // ==========================================================
-  // NOUVELLE LOGIQUE : BOUCLE INFINIE DANS LE BINAIRE
+  // CŒUR DU SYSTÈME : GÉNÉRATION AVEC RÉPÉTITION (LOOP)
   // ==========================================================
   const generateBinary = () => {
-    // Taille mémoire EEPROM 27C64 = 8192 octets
-    const MEMORY_SIZE = 8192;
+    const MEMORY_SIZE = 8192; // EEPROM 27C64
     const fullBuffer = new Uint8Array(MEMORY_SIZE);
     let index = 0;
 
     // --- MODE 1 : RUBAN HORIZONTAL (8x32) ---
     if (numRows === 8 && numCols === 32) {
-       // Chaque frame pèse 32 octets (4 matrices * 8 lignes)
        const BYTES_PER_FRAME = 32;
-       // Combien de frames rentrent au total dans la mémoire ? (8192 / 32 = 256)
-       const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+       // On calcule combien de frames tiennent au total dans 8K (256 frames)
+       const TOTAL_CAPACITY_FRAMES = MEMORY_SIZE / BYTES_PER_FRAME;
 
-       // ON BOUCLE JUSQU'À REMPLIR TOUTE LA MÉMOIRE
-       for (let f = 0; f < maxFramesCapacity; f++) {
-         // L'opérateur modulo (%) permet de revenir à la frame 0 quand on a dépassé la dernière frame créée
-         const frame = frames[f % frames.length];
+       // ON BOUCLE DE 0 A 255 (POUR REMPLIR TOUTE LA MEMOIRE)
+       for (let f = 0; f < TOTAL_CAPACITY_FRAMES; f++) {
+         
+         // L'ASTUCE EST ICI : on utilise le modulo (%)
+         // Si vous avez dessiné 3 frames, quand f=3, on reprend la frame 0.
+         // Quand f=4, on reprend frame 1, etc.
+         const frameToUse = frames[f % frames.length];
 
          // Matrice 1 (Colonnes 0 à 7)
          for (let r = 0; r < 8; r++) {
            let byte = 0;
-           for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0);
+           for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c] ? (1 << c) : 0);
            fullBuffer[index++] = byte;
          }
          // Matrice 2 (Colonnes 8 à 15)
          for (let r = 0; r < 8; r++) {
            let byte = 0;
-           for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0);
+           for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c+8] ? (1 << c) : 0);
            fullBuffer[index++] = byte;
          }
          // Matrice 3 (Colonnes 16 à 23)
          for (let r = 0; r < 8; r++) {
            let byte = 0;
-           for (let c = 0; c < 8; c++) byte |= (frame[r][c+16] ? (1 << c) : 0);
+           for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c+16] ? (1 << c) : 0);
            fullBuffer[index++] = byte;
          }
          // Matrice 4 (Colonnes 24 à 31)
          for (let r = 0; r < 8; r++) {
            let byte = 0;
-           for (let c = 0; c < 8; c++) byte |= (frame[r][c+24] ? (1 << c) : 0);
+           for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c+24] ? (1 << c) : 0);
            fullBuffer[index++] = byte;
          }
        }
@@ -130,28 +131,28 @@ const MatrixGenPro = () => {
     // --- MODE 2 : CARRÉ TILED (16x16) ---
     else if (numRows === 16 && numCols === 16) {
       const BYTES_PER_FRAME = 32;
-      const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+      const TOTAL_CAPACITY_FRAMES = MEMORY_SIZE / BYTES_PER_FRAME;
 
-      for (let f = 0; f < maxFramesCapacity; f++) {
-        const frame = frames[f % frames.length];
+      for (let f = 0; f < TOTAL_CAPACITY_FRAMES; f++) {
+        const frameToUse = frames[f % frames.length];
         
-        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
-        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
-        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
-        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
+        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
+        for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
+        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
+        for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frameToUse[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
       }
     }
 
     // --- MODE 3 : STANDARD (8x8) ---
     else if (numRows === 8 && numCols === 8) {
       const BYTES_PER_FRAME = 8;
-      const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+      const TOTAL_CAPACITY_FRAMES = MEMORY_SIZE / BYTES_PER_FRAME;
 
-      for (let f = 0; f < maxFramesCapacity; f++) {
-        const frame = frames[f % frames.length];
+      for (let f = 0; f < TOTAL_CAPACITY_FRAMES; f++) {
+        const frameToUse = frames[f % frames.length];
         for (let c = 0; c < 8; c++) { 
           let byte = 0;
-          for (let r = 0; r < 8; r++) { if(frame[r][c]) byte |= (1 << (7-r)); }
+          for (let r = 0; r < 8; r++) { if(frameToUse[r][c]) byte |= (1 << (7-r)); }
           fullBuffer[index++] = byte;
         }
       }
@@ -166,7 +167,7 @@ const MatrixGenPro = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `ANIM_${numRows}x${numCols}.BIN`;
+    link.download = `ANIM_LOOP_${numRows}x${numCols}.BIN`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -193,7 +194,7 @@ const MatrixGenPro = () => {
     <div style={styles.container} onMouseUp={handleMouseUp}>
       <div style={styles.header}>
         <h1 style={styles.title}>Générateur Matrice LED Studio</h1>
-        <div style={{color:'#aaa', fontSize:'0.9rem'}}>Binaire en boucle : 8192 octets (Répétition auto)</div>
+        <div style={{color:'#aaa', fontSize:'0.9rem'}}>Remplissage Auto : Animation en Boucle (8192 octets)</div>
       </div>
 
       <div style={styles.controlPanel}>
