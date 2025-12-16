@@ -80,19 +80,26 @@ const MatrixGenPro = () => {
   }, [isPlaying, frames.length, fps]);
 
   // ==========================================================
-  // NOUVELLE LOGIQUE : GÉNÉRATION BINAIRE FIXE (8192 OCTETS)
+  // NOUVELLE LOGIQUE : BOUCLE INFINIE DANS LE BINAIRE
   // ==========================================================
   const generateBinary = () => {
-    // On crée un buffer de la taille exacte de l'EEPROM 27C64 (8 Kio)
-    // Par défaut, il est rempli de 0x00 (Noir)
-    const fullBuffer = new Uint8Array(8192);
+    // Taille mémoire EEPROM 27C64 = 8192 octets
+    const MEMORY_SIZE = 8192;
+    const fullBuffer = new Uint8Array(MEMORY_SIZE);
     let index = 0;
 
     // --- MODE 1 : RUBAN HORIZONTAL (8x32) ---
     if (numRows === 8 && numCols === 32) {
-       frames.forEach((frame) => {
-         if (index + 32 > 8192) return; // Sécurité anti-débordement
-         
+       // Chaque frame pèse 32 octets (4 matrices * 8 lignes)
+       const BYTES_PER_FRAME = 32;
+       // Combien de frames rentrent au total dans la mémoire ? (8192 / 32 = 256)
+       const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+
+       // ON BOUCLE JUSQU'À REMPLIR TOUTE LA MÉMOIRE
+       for (let f = 0; f < maxFramesCapacity; f++) {
+         // L'opérateur modulo (%) permet de revenir à la frame 0 quand on a dépassé la dernière frame créée
+         const frame = frames[f % frames.length];
+
          // Matrice 1 (Colonnes 0 à 7)
          for (let r = 0; r < 8; r++) {
            let byte = 0;
@@ -117,31 +124,37 @@ const MatrixGenPro = () => {
            for (let c = 0; c < 8; c++) byte |= (frame[r][c+24] ? (1 << c) : 0);
            fullBuffer[index++] = byte;
          }
-       });
+       }
     }
     
     // --- MODE 2 : CARRÉ TILED (16x16) ---
     else if (numRows === 16 && numCols === 16) {
-      frames.forEach((frame) => {
-        if (index + 32 > 8192) return;
-        // Bloc HG, HD, BG, BD
+      const BYTES_PER_FRAME = 32;
+      const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+
+      for (let f = 0; f < maxFramesCapacity; f++) {
+        const frame = frames[f % frames.length];
+        
         for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
         for (let r = 0; r < 8; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
         for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c] ? (1 << c) : 0); fullBuffer[index++] = byte; }
         for (let r = 8; r < 16; r++) { let byte = 0; for (let c = 0; c < 8; c++) byte |= (frame[r][c+8] ? (1 << c) : 0); fullBuffer[index++] = byte; }
-      });
+      }
     }
 
     // --- MODE 3 : STANDARD (8x8) ---
     else if (numRows === 8 && numCols === 8) {
-      frames.forEach((frame) => {
-        if (index + 8 > 8192) return;
+      const BYTES_PER_FRAME = 8;
+      const maxFramesCapacity = MEMORY_SIZE / BYTES_PER_FRAME;
+
+      for (let f = 0; f < maxFramesCapacity; f++) {
+        const frame = frames[f % frames.length];
         for (let c = 0; c < 8; c++) { 
           let byte = 0;
           for (let r = 0; r < 8; r++) { if(frame[r][c]) byte |= (1 << (7-r)); }
           fullBuffer[index++] = byte;
         }
-      });
+      }
     }
 
     return fullBuffer;
@@ -180,7 +193,7 @@ const MatrixGenPro = () => {
     <div style={styles.container} onMouseUp={handleMouseUp}>
       <div style={styles.header}>
         <h1 style={styles.title}>Générateur Matrice LED Studio</h1>
-        <div style={{color:'#aaa', fontSize:'0.9rem'}}>Sortie fixe : 8192 octets (EEPROM 27C64)</div>
+        <div style={{color:'#aaa', fontSize:'0.9rem'}}>Binaire en boucle : 8192 octets (Répétition auto)</div>
       </div>
 
       <div style={styles.controlPanel}>
@@ -229,7 +242,7 @@ const MatrixGenPro = () => {
           <button onClick={addFrame} style={{minWidth:'40px', background:'#333', border:'1px dashed #666', color:'#666', fontSize:'20px'}}>+</button>
       </div>
 
-      <button onClick={handleDownload} style={styles.mainBtn}>💾 TÉLÉCHARGER LE .BIN (8192 octets)</button>
+      <button onClick={handleDownload} style={styles.mainBtn}>💾 TÉLÉCHARGER LE .BIN </button>
     </div>
   );
 };
